@@ -1,0 +1,17 @@
+vdi_protocol
+integrity_check
+metayaml
+attrdict
+logbook
+raven
+logbook
+asdconfigobj
+netifaces
+
+[:sys_platform=="linux"]
+psutil
+python-iptables
+dbus-python
+
+[:sys_platform=="win32"]
+pywin32

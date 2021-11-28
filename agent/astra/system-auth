@@ -1,0 +1,156 @@
+#!/bin/sh
+#    cmd="/usr/bin/astra-winbind"
+#    cmd_sudo="/usr/bin/sudo"
+#    if test -x "$cmd"; then
+#	$cmd_sudo $cmd -dc dc01.rosenergoatom.local -u $6 -y -p $7
+#	exit 0
+#    
+#    else
+#	echo "Cannot find $cmd executable required to join to Active Directory domain"
+#	exit 1
+#    fi	
+#system-auth, write, ad, domain_lower, machine_name, work_group, admin_name, admin_pwd
+
+# samba conf
+smb_conf="/etc/samba/smb.conf"
+
+# krb conf
+krb5_conf="/etc/krb5.conf"
+
+#nss configuration
+nssldapfile=
+nssldapfile1="/etc/nss_ldap.conf"
+nssldapfile2="/etc/nslcd.conf"
+nsswitchfile="/etc/nsswitch.conf"
+
+# sssd config
+sssd_conf="/etc/sssd/sssd.conf"
+
+# time sync command
+net_cmd="/usr/bin/net"
+
+upper()
+{
+    echo -n "$1" | tr '[[:lower:]]' '[[:upper:]]'
+}
+
+
+
+domain="$(upper $3)"
+workgroup="$(upper $5)"
+
+
+# Prepare file for write parameters
+test -e "$smb_conf.orig" || cp "$smb_conf" "$smb_conf.orig"
+
+
+echo "[global]
+        security = ads
+        realm = $domain
+        workgroup = $workgroup
+        netbios name = $4
+        template shell = /bin/bash
+        kerberos method = system keytab
+        dedicated keytab file = /etc/krb5.keytab
+        wins support = yes
+
+        idmap config * : range = 10000-20000000
+        idmap config * : backend = tdb
+[share]
+comment = Commonplace
+path = /srv/share
+read only = No
+
+[homes]
+comment = Home Directory for '%u'
+browseable = no
+writable = yes" > $smb_conf
+
+# Prepare file for write parameters
+test -e "$krb5_conf.orig" || cp "$krb5_conf" "$krb5_conf.orig"
+
+
+echo "[logging]
+
+[libdefaults]
+dns_lookup_kdc = true
+dns_lookup_realm = true
+ticket_lifetime = 24h
+renew_lifetime = 7d
+forwardable = true
+rdns = false
+default_ccache_name = KEYRING:persistent:%{uid}
+
+default_realm = $domain
+[domain_realm]
+[realms]
+$domain = {
+kdc = $domain
+}
+" > $krb5_conf
+
+
+# Prepare file for write parameters
+test -e "$nsswitchfile.orig" || cp "$nsswitchfile" "$nsswitchfile.orig"
+
+echo "passwd: files sss
+shadow: tcb files sss
+group: files [SUCCESS=merge] sss role
+gshadow:    files
+
+hosts:      files mdns4_minimal [NOTFOUND=return] dns myhostname fallback
+
+ethers:     files
+netmasks:   files
+networks:   files
+protocols:  files
+rpc:        files
+services:   files
+
+bootparams: nisplus [NOTFOUND=return] files
+
+netgroup:   nisplus
+
+publickey:  nisplus
+
+automount:  files
+aliases:    files
+" > $nsswitchfile
+
+# Prepare file for write parameters
+test -e "$sssd_conf.orig" || cp "$sssd_conf" "$sssd_conf.orig"
+
+echo "
+[sssd]
+config_file_version = 2
+services = nss, pam
+
+domains = $domain
+[nss]
+
+[pam]
+
+[domain/$domain]
+id_provider = ad
+auth_provider = ad
+chpass_provider = ad
+default_shell = /bin/bash
+fallback_homedir = /home/%d/%u
+debug_level = 0
+" > $sssd_conf
+
+chmod a+r "$krb5_conf"
+
+ldomain="$3"
+# Set correct FQDN
+FQDN="$4.$ldomain"
+
+#Join to domain
+$net_cmd ads join -U"$6%$7" | grep -v '^Using short domain name'
+
+[ "$?" -ne 0 ] && return 1
+
+# Register machine in domain DNS
+    $net_cmd ads dns register -U"$6%$7" "$FQDN"
+
+service sssd restart

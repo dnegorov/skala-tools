@@ -1,0 +1,69 @@
+logging:
+  #: Отправлять сообщения syslog серверу
+  syslog: False
+  #: Отправлять сообщения только syslog серверу, не создавая локальных текстовых лог файлов
+  syslog_only: False
+  #: Директория логов сервиса, если включено логгирование в файл
+  log_dir: /var/log/vm-agent
+  #: Часовой пояс время которого будет использоваться в текстовых лог файлах. Пример: "Europe/Moscow"
+  timezone: "Europe/Moscow"
+  default:
+    level: $("DEBUG" if devel.debug else "INFO")
+    format_string: "[{record.time:%Y-%m-%d %H:%M:%S}][{record.extra[request_id]:>6}]{record.level_name:>7}: {record.message}"
+    handler_list:
+      - Null
+      - AppFile
+      - AppSyslog
+
+  handlers:
+    stderr:
+      type: StderrHandler
+      level: "DEBUG"
+
+    AppFile:
+      type: FileHandler
+      filename: $(join(logging.log_dir, "__APP__.log"))
+      delay: true
+      bubble: true
+      finger_cross: false
+      filter: without_api_filter
+      encoding: utf-8
+
+    WindowsEventLog:
+      type: PatchedNTEventLogHandler
+      application_name: "VDIAgent"
+      bubble: true
+      level: "INFO"
+
+    AppSyslog:
+      # for sending logs to the remote syslog server use this form for address
+      # address: [syslog_server_hostname_or_ip, syslog_server_port]
+      type: SyslogHandler
+      application_name: __APP__
+      bubble: true
+      finger_cross: false
+
+    Null:
+      type: NullHandler
+
+  finger_cross:
+    buffer_size: 0
+    reset: false
+    action_level: WARNING
+    bubble: true
+
+  applications:
+    stderr:
+      handlers:
+        - Null
+        - stderr
+
+    vm_agent:
+      handlers:
+        - Null
+        #: WindowsEventLog включает логирование в EventLog на Windows. AppFile логирование в файл для Linux систем
+        - $("WindowsEventLog" if os_name == "nt" else "AppFile")
+    test:
+      handlers:
+        - Null
+        - AppFile

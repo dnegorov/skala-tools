@@ -1,0 +1,5 @@
+[console_scripts]
+calc_checksum = integrity_check.checksum:generate_signed_checksum
+compile_bin = integrity_check.compile_bin:main
+generate_integrity_flag = integrity_check.checksum:generate_signed_flag
+

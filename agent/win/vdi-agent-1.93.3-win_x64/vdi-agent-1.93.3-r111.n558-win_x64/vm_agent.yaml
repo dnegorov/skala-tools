@@ -1,0 +1,33 @@
+vm_agent:
+  # Адрес брокер менеджера
+  #broker_manager_host: "dp01.company.ru"
+
+  # Задержка при запуске службы для установки сетевых адресов. Нужен только для Windows
+  #start_delay: 60
+
+  # Интервал, с которым осуществляется проверка целостности VDI Агента. Задается в секундах
+  self_check_interval: 300
+
+  #: Игнорирование ошибок добавления пользователя в локальную группу. ВНИМАНИЕ! Включение этой опции может нарушить функциональность рабочего стола.
+  #ignore_group_add_errors: true
+
+logging:
+ # Путь к файлу журнала. В Windows путь указывается с двойными \ - "C:\\Windows\\Temp"
+  log_dir: "C:\\"
+  applications:
+    vm_agent:
+      # Включение записи журналов в следующие источники:
+      handlers:
+        - Null
+        # Включает запись журнала в файл
+        - AppFile
+        # Включает запись журнала в Windows EventLog
+        #- WindowsEventLog
+
+  handlers:
+    AppFile:
+      # Уровень логирования в файл, например "DEBUG"
+      level: "INFO"
+    WindowsEventLog:
+      # Уровень логирования в Windows EventLog
+      level: "INFO"

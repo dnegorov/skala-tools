@@ -1,0 +1,3 @@
+[console_scripts]
+vm_agent = vm_agent.service:main
+
